@@ -1,0 +1,19 @@
+{
+  "imports": {
+    "@langchain/ollama": "npm:@langchain/ollama@^0.2.3",
+    "@langchain/core/prompts": "npm:@langchain/core@0.3.61/prompts",
+    "hono": "jsr:@hono/hono@^4.7.9",
+    "@langchain/community/stores/message/file_system": "npm:@langchain/community@^0.3.47/stores/message/file_system",
+    "@langchain/core/runnables": "npm:@langchain/core@0.3.61/runnables",
+    "@langchain/core/output_parsers": "npm:@langchain/core@0.3.61/output_parsers",
+    "@langchain/mongodb": "npm:@langchain/mongodb@0.1.0",
+    "langchain": "npm:langchain@0.3.29",
+    "mongodb": "npm:mongodb@^6.17.0",
+    "zod": "npm:zod"
+  },
+  "tasks": {
+    "start": "deno run -A --watch --env-file src/mod.ts",
+    "create": "deno run -A --env-file admin/mod.ts",
+    "setup": "deno run -A --env-file utils/script.ts"
+  }
+}

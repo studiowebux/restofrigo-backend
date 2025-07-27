@@ -1,0 +1,132 @@
+services:
+  restofrigo-server:
+    image: restofrigo-server
+    build:
+      context: ./server
+    container_name: restofrigo-server
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - ./.env.docker
+    environment:
+      - VIRTUAL_HOST=api.restofrigo.com
+      - VIRTUAL_PORT=9992
+      - LETSENCRYPT_HOST=api.restofrigo.com
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4318
+      - OTEL_METRIC_EXPORT_INTERVAL=60000
+      - OTEL_SERVICE_NAME=restofrigo-server
+      - OTEL_DENO=true
+    networks:
+      - proxy
+      - restofrigo-db
+      - restofrigo-metrics
+      - restofrigo-internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "1024M"
+
+  mongodb-init:
+    image: mongo:8.0.8-noble
+    container_name: mongodb-init
+    env_file:
+      - ./.env.docker
+    command: bash -c "chmod +x init-replica-set.sh && ./init-replica-set.sh"
+    networks:
+      - restofrigo-db
+    volumes:
+      - "./db/init-replica-set.sh:/init-replica-set.sh"
+      - "./db/keys:/keys/" # Replica set key
+    restart: no
+
+  mongo:
+    image: mongo:8.0.8-noble
+    container_name: restofrigo-db
+    restart: unless-stopped
+    depends_on:
+      - mongodb-init
+    volumes:
+      - restofrigo-db:/data/db
+      - ./db/db-entrypoint.sh:/docker-entrypoint-initdb.d/db-entrypoint.sh:ro
+      - ./db/keys:/keys/ # Replica set key
+    command:
+      [
+        "mongod",
+        "--auth",
+        "--replSet",
+        "rs0",
+        "--bind_ip_all",
+        "--port",
+        "27017",
+        "--keyFile",
+        "/keys/rs0",
+      ]
+    env_file:
+      - ./.env.docker
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh mongodb://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/?authSource=${DB_NAME} --quiet
+      interval: 60s
+      timeout: 30s
+      retries: 30
+      start_period: 120s
+    ports:
+      - 27018:27017
+    networks:
+      - restofrigo-db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "1024M"
+
+  otel:
+    image: docker.io/grafana/otel-lgtm:0.11.5
+    container_name: restofrigo-otel
+    networks:
+      - restofrigo-metrics
+    environment:
+      - GF_PATHS_DATA=/data/grafana
+    volumes:
+      - otel-data:/data/
+    ports:
+      - 3001:3000
+      # - 4317:4317
+      # - 4318:4318
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "1024M"
+
+networks:
+  restofrigo-metrics:
+    name: restofrigo-metrics
+    external: true
+  restofrigo-db:
+    name: restofrigo-db
+    external: true
+  restofrigo-internal:
+    name: restofrigo-internal
+    external: true
+  proxy:
+    name: proxy
+    external: true
+
+volumes:
+  restofrigo-db:
+  otel-data:
