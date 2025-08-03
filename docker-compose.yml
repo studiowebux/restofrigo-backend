@@ -92,6 +92,7 @@ services:
   otel:
     image: docker.io/grafana/otel-lgtm:0.11.5
     container_name: restofrigo-otel
+    restart: unless-stopped
     networks:
       - restofrigo-metrics
     environment:
