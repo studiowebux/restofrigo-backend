@@ -22,3 +22,5 @@ if (!args.tokens) {
 const result = await MongoService.createApiKey(args.email, args.tokens);
 
 console.log(result);
+
+await MongoService.close();
